@@ -1,0 +1,45 @@
+name: agentbench-release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+env:
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+  MPLCONFIGDIR: ${{ github.workspace }}/.cache/matplotlib
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.lock
+          .venv/bin/python -m pip install --no-build-isolation --no-deps -e .
+      - run: .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/pytest -q
+      - uses: actions/cache@v4
+        with:
+          path: data/raw/yellow_tripdata_2024-01.parquet
+          key: agentbench-tlc-yellow-2024-01-v1
+      - uses: actions/cache@v4
+        with:
+          path: data/raw/yellow_tripdata_2024-02.parquet
+          key: agentbench-tlc-yellow-2024-02-v1
+      - uses: actions/cache@v4
+        with:
+          path: data/raw/yellow_tripdata_2024-03.parquet
+          key: agentbench-tlc-yellow-2024-03-v1
+      - run: .venv/bin/taxi-pipeline run-all 2024-01 2024-02 2024-03
+      - name: Publish report, charts, and aggregate Parquet files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag \
+            --title "agentbench-taxi-pipeline $RELEASE_TAG" \
+            --notes 'NYC TLC yellow taxi analysis for January–March 2024. Download report.md and all three PNGs together to view the charts. Includes three aggregate Parquet tables.' \
+            reports/report.md reports/*.png reports/*.parquet

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "agentbench-taxi-pipeline"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["duckdb==1.5.6", "matplotlib==3.11.2"]
+dependencies = ["certifi==2026.7.22", "duckdb==1.5.6", "matplotlib==3.11.2"]
 
 [project.optional-dependencies]
 dev = ["pytest==9.1.1", "ruff==0.16.10"]
