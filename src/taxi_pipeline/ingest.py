@@ -3,10 +3,12 @@
 import hashlib
 import re
 import shutil
+import ssl
 import urllib.request
 from datetime import date
 from pathlib import Path
 
+import certifi
 import duckdb
 
 BASE_URL = "https://d37ci6vzurychx.cloudfront.net"
@@ -41,7 +43,12 @@ def download(url: str, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     try:
-        with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as out:
+        with (
+            urllib.request.urlopen(
+                url, timeout=120, context=ssl.create_default_context(cafile=certifi.where())
+            ) as response,
+            partial.open("wb") as out,
+        ):
             shutil.copyfileobj(response, out)
         partial.replace(target)
     finally:

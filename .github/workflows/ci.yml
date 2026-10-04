@@ -1,0 +1,52 @@
+name: agentbench-ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * 1'
+permissions:
+  contents: read
+env:
+  PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+  MPLCONFIGDIR: ${{ github.workspace }}/.cache/matplotlib
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install locked dependencies in workspace venv
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.lock
+          .venv/bin/python -m pip install --no-build-isolation --no-deps -e .
+      - run: .venv/bin/ruff check .
+      - run: .venv/bin/ruff format --check .
+      - run: .venv/bin/pytest -q
+  pipeline:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.lock
+          .venv/bin/python -m pip install --no-build-isolation --no-deps -e .
+      - uses: actions/cache@v4
+        with:
+          path: data/raw/yellow_tripdata_2024-01.parquet
+          key: agentbench-tlc-yellow-2024-01-v1
+      - run: .venv/bin/taxi-pipeline run-all 2024-01
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentbench-taxi-reports-2024-01
+          path: reports/
+          if-no-files-found: error
